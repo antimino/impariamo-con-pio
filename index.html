@@ -129,8 +129,14 @@ const sfx={ok(){[523,659,784,1047].forEach((f,i)=>tone(f,i*.09,.3))},no(){tone(3
 let voice=null;
 function pickVoice(){try{const vs=speechSynthesis.getVoices();voice=vs.find(v=>/^it[-_]IT/i.test(v.lang))||vs.find(v=>v.lang.toLowerCase().startsWith('it'))||null}catch(e){}}
 try{speechSynthesis.onvoiceschanged=pickVoice;pickVoice()}catch(e){}
-function say(t,o={}){return new Promise(res=>{if(S.mute||!('speechSynthesis' in window))return res();try{if(o.cancel!==false)speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(t);u.lang='it-IT';if(voice)u.voice=voice;u.rate=o.rate||.8;u.pitch=1.15;u.onend=res;u.onerror=res;speechSynthesis.speak(u);setTimeout(res,9000)}catch(e){res()}})}
-const praise=()=>say(pick(PRAISE)+(S.name&&Math.random()<.4?' '+S.name+'!':''));
+let AUD={},curAudio=null;
+fetch('audio/index.json').then(r=>r.json()).then(j=>AUD=j).catch(()=>{});
+function stopAudio(){try{curAudio&&curAudio.pause();curAudio=null}catch(e){}try{speechSynthesis.cancel()}catch(e){}}
+function say(t,o={}){return new Promise(res=>{if(S.mute)return res();
+ const f=AUD[t.trim().toLowerCase()];
+ if(f){try{if(o.cancel!==false)stopAudio();const a=new Audio('audio/'+f);curAudio=a;a.onended=res;a.onerror=res;a.play().catch(res);setTimeout(res,9000)}catch(e){res()}return}
+ if(!('speechSynthesis' in window))return res();try{if(o.cancel!==false)speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(t);u.lang='it-IT';if(voice)u.voice=voice;u.rate=o.rate||.8;u.pitch=1.15;u.onend=res;u.onerror=res;speechSynthesis.speak(u);setTimeout(res,9000)}catch(e){res()}})}
+const praise=()=>say(pick(PRAISE));
 
 /* ---------- effetti ---------- */
 function confetti(){const f=document.createElement('div');f.className='confetti';for(let i=0;i<36;i++){const s=document.createElement('i');s.textContent=['⭐','🎉','✨','💖','🌈'][i%5];s.style.left=Math.random()*100+'%';s.style.animationDelay=Math.random()*.5+'s';s.style.fontSize=20+Math.random()*26+'px';f.appendChild(s)}document.body.appendChild(f);setTimeout(()=>f.remove(),2800)}
@@ -143,13 +149,13 @@ function updHeader(){$('#nStars').textContent=S.stars;$('#bMute').textContent=S.
 let tok=0,cleanup=null,cur='home';
 const TITLES={home:'Impariamo con Pio',abc:'Alfabeto',trace:'Scrivi',find:'Trova la lettera',num:'Numeri',count:'Conta',syl:'Sillabe',read:'Leggi',album:'I miei adesivi'};
 const CASEABLE=['abc','trace','find','read'];
-function go(name,arg){tok++;cleanup&&cleanup();cleanup=null;try{speechSynthesis.cancel()}catch(e){}cur=name;
+function go(name,arg){tok++;cleanup&&cleanup();cleanup=null;stopAudio();cur=name;
  $('#title').textContent=TITLES[name];$('#bHome').classList.toggle('hide',name==='home');$('#bCase').classList.toggle('hide',!CASEABLE.includes(name));
  $('#main').innerHTML='';$('#main').scrollTop=0;SCREENS[name](arg,tok)}
 function reroll(){go(cur)}
 $('#bHome').onclick=()=>{unlock();go('home')};
 $('#bStars').onclick=()=>{unlock();go('album')};
-$('#bMute').onclick=()=>{unlock();S.mute=!S.mute;save();updHeader();if(S.mute)try{speechSynthesis.cancel()}catch(e){}};
+$('#bMute').onclick=()=>{unlock();S.mute=!S.mute;save();updHeader();if(S.mute)stopAudio()};
 $('#bCase').onclick=()=>{unlock();S.lower=!S.lower;save();updHeader();reroll()};
 document.addEventListener('pointerdown',unlock,{once:false});
 document.addEventListener('contextmenu',e=>e.preventDefault());
@@ -168,11 +174,10 @@ SCREENS.home=()=>{
  const cards=[['abc','Alfabeto','🔤'],['trace','Scrivi','✏️'],['find','Trova la lettera','🔎'],['num','Numeri','🔢'],['count','Conta','🍎'],['syl','Sillabe','🧩'],['read','Leggi','📖'],['album','Adesivi','🏆']];
  main().innerHTML='<div class="home">'+cards.map((c,i)=>`<button class="card" data-g="${c[0]}" style="--c:${COLORS[i]};animation-delay:${i*.06}s"><span class="e">${c[2]}</span>${c[1]}</button>`).join('')+'</div>';
  main().querySelectorAll('.card').forEach(b=>b.onclick=()=>{sfx.pop();go(b.dataset.g)});
- if(!S.name&&!window.__asked){window.__asked=true;ask()}
- else if(!window.__hi){window.__hi=true;setTimeout(()=>say(S.name?'Ciao '+S.name+'! Io sono Pio. Giochiamo insieme?':'Ciao! Io sono Pio. Giochiamo insieme?'),400)}
+ if(!window.__hi){window.__hi=true;setTimeout(()=>say('Ciao! Io sono Pio. Giochiamo insieme?'),400)}
 };
 function ask(){const {o,close}=overlay('<div style="font-size:60px">🐥</div><div style="font-size:30px;margin:6px 0 12px">Ciao! Come ti chiami?<br><small style="font-size:18px;font-weight:400">(un genitore può scrivere il nome)</small></div><input id="nm" maxlength="20" autocomplete="off"><div style="margin-top:16px"><button class="pill on" id="ok">Ok</button> <button class="pill" id="sk">Salta</button></div>');
- $('#ok',o).onclick=()=>{S.name=$('#nm',o).value.trim();save();close();say(S.name?'Ciao '+S.name+'! Io sono Pio. Giochiamo insieme?':'Ciao! Giochiamo insieme?')};
+ $('#ok',o).onclick=()=>{S.name=$('#nm',o).value.trim();save();close();say('Ciao! Io sono Pio. Giochiamo insieme?')};
  $('#sk',o).onclick=()=>{close()}}
 
 /* Alfabeto */
@@ -225,7 +230,7 @@ SCREENS.trace=(arg,t)=>{
    brush=Math.min(glyph.fs*.22,Math.max(glyph.fs*.08,P?2.6*A/P:brush))}
   tctx.lineWidth=brush*1.3;tctx.lineJoin='round';tctx.strokeStyle='#000';tctx.strokeText(ch,glyph.x,glyph.y);allowD=tctx.getImageData(0,0,w,h).data;
   strip();
-  if(setup.say!==false){say(mode==='L'?`Scrivi la ${LNAME[item()]}`:`Scrivi il ${NUMW[+item()]}`)}}
+  if(setup.say!==false){say(mode==='L'?`Scrivi la ${LNAME[item()]}`:(item()==='0'?'Scrivi lo zero':`Scrivi il ${NUMW[+item()]}`))}}
  function pos(e){const r=cv.getBoundingClientRect();return[e.clientX-r.left,e.clientY-r.top]}
  function seg(a,b){hue=(hue+4)%360;ictx.lineCap='round';ictx.lineJoin='round';ictx.lineWidth=brush;ictx.strokeStyle=`hsl(${hue} 85% 55%)`;ictx.beginPath();ictx.moveTo(a[0],a[1]);ictx.lineTo(b[0],b[1]);ictx.stroke()}
  function measure(){tctx.clearRect(0,0,w,h);tctx.drawImage(ink,0,0,w,h);const u=tctx.getImageData(0,0,w,h).data;let tot=0,cov=0,it=0,out=0;
@@ -266,7 +271,7 @@ SCREENS.num=(arg,t)=>{
   main().innerHTML=`<div class="detail"><button class="rb" id="pv">◀</button><div class="mid"><div class="big" style="color:${COLORS[n%8]};font-family:${FONT}">${n}</div><div class="objs" id="ob" style="flex:none;max-width:90vw">${[...Array(n)].map((_,j)=>`<span class="obj" style="visibility:hidden">${e}</span>`).join('')}</div><div class="word">${NUMW[n]}</div></div><button class="rb" id="nx">▶</button></div>
   <div class="row"><button class="pill" id="sp">🔊 Conta con me</button><button class="pill" id="wr">✏️ Scrivi il ${n}</button><button class="pill" id="bk">🔢 Tutti</button></div>`;
   $('#pv').onclick=()=>show(n-1);$('#nx').onclick=()=>show(n+1);$('#bk').onclick=grid;$('#wr').onclick=()=>{go('trace',String(n%10))};
-  const run=async()=>{const my2=++show.id;const os=[...$('#ob').children];os.forEach(o=>o.style.visibility='hidden');try{speechSynthesis.cancel()}catch(e){}
+  const run=async()=>{const my2=++show.id;const os=[...$('#ob').children];os.forEach(o=>o.style.visibility='hidden');stopAudio();
    for(let j=0;j<os.length;j++){if(show.id!==my2||t!==tok)return;os[j].style.visibility='visible';os[j].classList.add('pop');sfx.pop();await say(NUMW[j+1],{rate:.9})}
    if(show.id===my2&&t===tok)say('Sono '+NUMW[n]+'!')};
   $('#sp').onclick=run;$('#ob').onclick=run;run()};
@@ -300,7 +305,7 @@ SCREENS.syl=(arg,t)=>{
   const sp=()=>say(word.toLowerCase());$('#sp').onclick=sp;main().querySelector('.pic').onclick=sp;sp();
   $('#tl').querySelectorAll('.tile').forEach(b=>b.onclick=()=>{if(st.lock)return;const s=tiles[+b.dataset.i];
    if(s===sy[pos]){const slot=$('#sl').children[pos];slot.textContent=s;slot.classList.add('f');b.classList.add('used');sfx.pop();pos++;
-    if(pos===sy.length){st.lock=true;setTimeout(()=>{sfx.ok();confetti();addStar();say(word.toLowerCase()+'! '+pick(PRAISE));setTimeout(()=>t===tok&&round(),2600)},250)}else say(s.toLowerCase(),{rate:.7})}
+    if(pos===sy.length){st.lock=true;setTimeout(()=>{sfx.ok();confetti();addStar();say(word.toLowerCase()).then(()=>t===tok&&praise());setTimeout(()=>t===tok&&round(),3600)},250)}else say(s.toLowerCase(),{rate:.7})}
    else{sfx.no();b.classList.remove('shake');void b.offsetWidth;b.classList.add('shake');say('Riprova!')}})};
  round();
 };
@@ -321,7 +326,7 @@ SCREENS.read=(arg,t)=>{
    main().innerHTML=`<div class="prompt"><span class="pio">🐥</span><span class="t">Con quale lettera inizia?</span><button class="rb" id="sp">🔊</button></div>
    <div class="detail"><div class="pic">${w[2]}</div></div>
    <div class="row" id="opts" style="flex:1;align-items:center">${opts.map((c,i)=>`<button class="tile" data-c="${c}" style="--c:${COLORS[(i*3)%8]};min-width:min(26vw,200px);height:min(30vh,200px);font-size:clamp(60px,18vmin,150px)">${L(c)}</button>`).join('')}</div>`;
-   const sp=()=>say(`${w[0].toLowerCase()}. Con quale lettera inizia ${w[0].toLowerCase()}?`);$('#sp').onclick=sp;main().querySelector('.pic').onclick=sp;sp();
+   const sp=()=>say(`Con quale lettera inizia ${w[0].toLowerCase()}?`);$('#sp').onclick=sp;main().querySelector('.pic').onclick=sp;sp();
    $('#opts').querySelectorAll('.tile').forEach(b=>b.onclick=()=>answer(b,b.dataset.c===ini,st,()=>t===tok&&round()))}};
  round();
 };
