@@ -14,7 +14,7 @@ def frasi():
         d = pg.evaluate("""()=>({L:LETTERS,N:LNAME,W:NUMW,WO:WORDS,P:PRAISE})""")
         b.close()
     out = set(d["P"]) | {"Riprova!", "Ciao! Io sono Pio. Giochiamo insieme?", "Ripassa solo sulla lettera!",
-                         "Quanti sono?", "Leggi la parola", "Hai vinto un nuovo adesivo!", "Scrivi lo zero"}
+                         "Quanti sono?", "Leggi la parola", "Hai vinto un nuovo adesivo!", "Scrivi lo zero", "Colora il disegno!"}
     for c, w, e in d["L"]:
         n = d["N"][c]
         out |= {f"{n}. {n} come {w}.", f"Trova la {n}", f"Scrivi la {n}", n}
