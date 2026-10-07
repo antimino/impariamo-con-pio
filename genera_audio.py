@@ -11,9 +11,9 @@ def frasi():
     with sync_playwright() as p:
         b = p.chromium.launch(); pg = b.new_page()
         pg.goto("file:///" + HERE.replace("\\", "/") + "/index.html")
-        d = pg.evaluate("""()=>({L:LETTERS,N:LNAME,W:NUMW,WO:WORDS,P:PRAISE})""")
+        d = pg.evaluate("""()=>({L:LETTERS,N:LNAME,W:NUMW,WO:WORDS,P:PRAISE,EX:EXTRA,VR:Object.values(VR).map(l=>l.join(" "))})""")
         b.close()
-    out = set(d["P"]) | {"Riprova!", "Ciao! Io sono Pio. Giochiamo insieme?", "Ripassa solo sulla lettera!",
+    out = set(d["P"]) | set(d["EX"]) | set(d["VR"]) | {"Riprova!", "Ciao! Io sono Pio. Giochiamo insieme?", "Ripassa solo sulla lettera!",
                          "Quanti sono?", "Leggi la parola", "Hai vinto un nuovo adesivo!", "Scrivi lo zero", "Colora il disegno!"}
     for c, w, e in d["L"]:
         n = d["N"][c]
@@ -35,7 +35,7 @@ async def main(fr):
         if os.path.exists(path): continue
         for k in range(3):
             try:
-                await edge_tts.Communicate(t, VOICE, rate=RATE, pitch=PITCH).save(path); break
+                await edge_tts.Communicate(t, VOICE, rate=("-16%" if len(t) > 40 else RATE), pitch=PITCH).save(path); break
             except Exception as e:
                 print("retry", t, e); await asyncio.sleep(2)
     json.dump(idx, open(HERE + "/audio/index.json", "w", encoding="utf-8"), ensure_ascii=False, indent=0)
