@@ -136,7 +136,7 @@ main{flex:1;min-height:0;position:relative;padding:8px 16px 16px;display:flex;fl
  <header>
   <button class="rb" id="bHome" aria-label="Home">🏠</button>
   <h1 id="title"></h1>
-  <button class="rb" id="bCase" aria-label="Maiuscolo o minuscolo" style="font-size:24px"></button>
+  <button class="rb" id="bCase" aria-label="Maiuscolo, minuscolo o entrambi" style="font-size:24px"></button>
   <button class="rb" id="bMute" aria-label="Audio"></button>
   <button class="stars" id="bStars"><span>⭐</span><span id="nStars">0</span></button>
  </header>
@@ -149,8 +149,8 @@ main{flex:1;min-height:0;position:relative;padding:8px 16px 16px;display:flex;fl
 const $=(s,e=document)=>e.querySelector(s);
 const FONT="'Arial Rounded MT Bold','Nunito','Baloo 2',Arial,sans-serif";
 const store={get(k,d){try{const v=localStorage.getItem('pio_'+k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem('pio_'+k,JSON.stringify(v))}catch(e){}}};
-const S={name:store.get('name',''),stars:store.get('stars',0),lower:store.get('lower',false),mute:store.get('mute',false),done:store.get('done',{}),plan:store.get('plan',{day:1,last:'',streak:0})};
-const save=()=>['name','stars','lower','mute','done','plan'].forEach(k=>store.set(k,S[k]));
+const S={name:store.get('name',''),stars:store.get('stars',0),cm:store.get('cm','U'),mute:store.get('mute',false),done:store.get('done',{}),plan:store.get('plan',{day:1,last:'',streak:0})};
+const save=()=>['name','stars','cm','mute','done','plan'].forEach(k=>store.set(k,S[k]));
 const shuffle=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]]}return a};
 const pick=a=>a[Math.random()*a.length|0];
 const wait=ms=>new Promise(r=>setTimeout(r,ms));
@@ -167,7 +167,9 @@ const VOW=['A','E','I','O','U'];
 const ALL=LETTERS.map(l=>l[0]);
 const VR={A:['Una gamba qua, una gamba là,','mi presento: son la A!'],E:['Di braccia ne ho tre,','mi presento: son la E!'],I:['Sempre in piedi sto, ogni notte e ogni dì,','mi presento: sono la I!'],O:['Ho sonno e niente fo, sbadiglio: oooh!','Mi presento: sono la O!'],U:['Mani in su, mani in su,','mi presento: sono la U!']};
 const EXTRA=['Cerchiamo le vocali!','Impariamo le lettere nuove!','Ora scriviamo!','Ora cerchiamo le lettere!','Ora contiamo!','Mettiamo insieme le sillabe!','Ora leggiamo!','Ora un bel disegno da colorare!','Ancora!','Pronta per la missione di oggi?','Missione compiuta! Sei stata bravissima!','Per oggi abbiamo finito. A domani!'];
-const L=ch=>S.lower?ch.toLowerCase():ch;
+const L=ch=>S.cm==='l'?ch.toLowerCase():ch;            /* una sola forma (quiz, scrittura) */
+const LB=ch=>S.cm==='l'?ch.toLowerCase():S.cm==='B'?ch+ch.toLowerCase():ch;   /* forma da mostrare in grande */
+const CMLABEL={U:'A',l:'a',B:'Aa'},CMNEXT={U:'l',l:'B',B:'U'};
 const COLORS=['#ff6b6b','#ffa94d','#51cf66','#339af0','#cc5de8','#20c997','#f06595','#fab005'];
 
 /* ---------- audio ---------- */
@@ -192,12 +194,12 @@ function confetti(){const f=document.createElement('div');f.className='confetti'
 function overlay(html,ms,onclose){const o=document.createElement('div');o.className='overlay';o.innerHTML='<div class="box">'+html+'</div>';document.body.appendChild(o);let closed=false;const close=()=>{if(closed)return;closed=true;o.remove();onclose&&onclose()};if(ms){setTimeout(close,ms);o.addEventListener('click',close)}return{o,close}}
 function addStar(n=1){const before=Math.floor(S.stars/5);S.stars+=n;save();updHeader();const b=$('#bStars');b.classList.remove('pulse');void b.offsetWidth;b.classList.add('pulse');
  if(Math.floor(S.stars/5)>before){const st=STICKERS[(Math.floor(S.stars/5)-1)%STICKERS.length];sfx.big();confetti();overlay('<div class="big2">'+st+'</div><div style="font-size:34px">Nuovo adesivo!</div>',3200);say('Hai vinto un nuovo adesivo!')}}
-function updHeader(){$('#nStars').textContent=S.stars;$('#bMute').textContent=S.mute?'🔇':'🔊';$('#bCase').textContent=S.lower?'a':'A'}
+function updHeader(){$('#nStars').textContent=S.stars;$('#bMute').textContent=S.mute?'🔇':'🔊';$('#bCase').textContent=CMLABEL[S.cm]}
 
 /* ---------- router ---------- */
 let tok=0,cleanup=null,cur='home';
 const TITLES={home:'Impariamo con Pio',abc:'Alfabeto',trace:'Scrivi',find:'Trova la lettera',num:'Numeri',count:'Conta',syl:'Sillabe',read:'Leggi',album:'I miei adesivi',colora:'Colora',vocali:'Le vocali',mission:'Il mio percorso',learn:'Lettere nuove'};
-const CASEABLE=['abc','trace','find','read'];
+const CASEABLE=['abc','trace','find','read','vocali','learn'];
 let lastArg;
 function go(name,arg,keep){if(!keep&&MIS){MIS=null}updMbar();lastArg=arg;tok++;cleanup&&cleanup();cleanup=null;stopAudio();document.querySelectorAll('.overlay').forEach(o=>o.remove());cur=name;
  $('#title').textContent=TITLES[name];$('#bHome').classList.toggle('hide',name==='home');$('#bCase').classList.toggle('hide',!CASEABLE.includes(name));
@@ -206,7 +208,7 @@ function reroll(){go(cur,lastArg,true)}
 $('#bHome').onclick=()=>{unlock();go('home')};
 $('#bStars').onclick=()=>{unlock();go('album')};
 $('#bMute').onclick=()=>{unlock();S.mute=!S.mute;save();updHeader();if(S.mute)stopAudio()};
-$('#bCase').onclick=()=>{unlock();S.lower=!S.lower;save();updHeader();reroll()};
+$('#bCase').onclick=()=>{unlock();S.cm=CMNEXT[S.cm];save();updHeader();reroll()};
 document.addEventListener('pointerdown',unlock,{once:false});
 document.addEventListener('contextmenu',e=>e.preventDefault());
 
@@ -243,7 +245,7 @@ SCREENS.abc=(arg,t)=>{
  const grid=()=>{i=-1;main().innerHTML='<div class="agrid">'+LETTERS.map((l,k)=>`<button class="tile" data-k="${k}" style="--c:${COLORS[k%8]}">${L(l[0])}</button>`).join('')+'</div>';
   main().querySelectorAll('.tile').forEach(b=>b.onclick=()=>show(+b.dataset.k))};
  const show=k=>{i=(k+LETTERS.length)%LETTERS.length;const [c,w,e]=LETTERS[i];
-  main().innerHTML=`<div class="detail"><button class="rb" id="pv">◀</button><div class="mid"><div class="big" style="color:${COLORS[i%8]};font-family:${FONT}">${c}${c.toLowerCase()}</div><div class="pic">${e}</div><div class="word"><b>${c}</b>${w.slice(1)}</div></div><button class="rb" id="nx">▶</button></div>
+  main().innerHTML=`<div class="detail"><button class="rb" id="pv">◀</button><div class="mid"><div class="big" style="color:${COLORS[i%8]};font-family:${FONT}">${LB(c)}</div><div class="pic">${e}</div><div class="word"><b>${c}</b>${w.slice(1)}</div></div><button class="rb" id="nx">▶</button></div>
   <div class="row"><button class="pill" id="sp">🔊 Ascolta</button><button class="pill" id="wr">✏️ Scrivi la ${c}</button><button class="pill" id="bk">🔤 Tutte</button></div>`;
   $('#pv').onclick=()=>show(i-1);$('#nx').onclick=()=>show(i+1);$('#bk').onclick=grid;$('#wr').onclick=()=>go('trace',c);
   const sp=()=>{sfx.pop();say(`${LNAME[c]}. ${LNAME[c]} come ${w}.`)};$('#sp').onclick=sp;sp();
@@ -375,7 +377,7 @@ SCREENS.read=(arg,t)=>{
   if(kind===1){ /* parola -> immagine */
    const opts=shuffle([w,...shuffle(RW.filter(x=>x[0]!==w[0])).slice(0,2)]);
    main().innerHTML=`<div class="prompt"><span class="pio">🐥</span><span class="t">Leggi la parola e trova il disegno</span><button class="rb" id="sp">🔊</button></div>
-   <div class="detail"><div class="big" style="font-size:clamp(60px,18vmin,180px);font-family:${FONT};color:${COLORS[w[0].length%8]}">${S.lower?w[0].toLowerCase():w[0]}</div></div>
+   <div class="detail"><div class="big" style="font-size:clamp(60px,18vmin,180px);font-family:${FONT};color:${COLORS[w[0].length%8]}">${S.cm==='l'?w[0].toLowerCase():w[0]}</div></div>
    <div class="row" id="opts" style="flex:1;align-items:center">${opts.map(o=>`<button class="tile" data-c="${o[0]}" style="min-width:min(26vw,200px);height:min(30vh,200px);font-size:clamp(60px,18vmin,150px)">${o[2]}</button>`).join('')}</div>`;
    $('#sp').onclick=()=>say(w[0].toLowerCase());main().querySelector('.big').onclick=$('#sp').onclick;say('Leggi la parola');
    $('#opts').querySelectorAll('.tile').forEach(b=>b.onclick=()=>answer(b,b.dataset.c===w[0],st,()=>t===tok&&round()));
@@ -413,7 +415,7 @@ SCREENS.colora=(arg,t)=>{
 /* Filastrocca della vocale (finestra) */
 function rhymeView(c,onDone){
  const lines=VR[c],w=LETTERS.find(l=>l[0]===c);
- const {o,close}=overlay(`<div class="rv"><div class="rl" style="color:${COLORS[VOW.indexOf(c)*2%8]}">${c}${c.toLowerCase()}</div><div class="rm">${w[2]}</div><div class="rt">${lines.map((l,i)=>`<div style="animation-delay:${i*1.6+.3}s">${l}</div>`).join('')}</div><button class="pill on" id="rvb">${onDone?'Avanti ▶':'✖ Chiudi'}</button></div>`,0,()=>{stopAudio();onDone&&onDone()});
+ const {o,close}=overlay(`<div class="rv"><div class="rl" style="color:${COLORS[VOW.indexOf(c)*2%8]}">${LB(c)}</div><div class="rm">${w[2]}</div><div class="rt">${lines.map((l,i)=>`<div style="animation-delay:${i*1.6+.3}s">${l}</div>`).join('')}</div><button class="pill on" id="rvb">${onDone?'Avanti ▶':'✖ Chiudi'}</button></div>`,0,()=>{stopAudio();onDone&&onDone()});
  const sp=()=>say(lines.join(' '));$('.rl',o).onclick=sp;$('#rvb',o).onclick=close;sfx.big();setTimeout(sp,350)}
 
 /* Vocali: trova le vocali sparse + filastrocche */
@@ -421,7 +423,7 @@ SCREENS.vocali=(arg,t)=>{
  const C=MIS&&MIS.cfg,seq=(arg&&arg.seq)||VOW,CONSON=ALL.filter(c=>!VOW.includes(c));let vi=0,tab='game';
  const tabs=()=>C?'':`<div class="row"><button class="pill ${tab==='game'?'on':''}" id="tg">🔎 Trova le vocali</button><button class="pill ${tab==='rh'?'on':''}" id="tr">🎵 Filastrocche</button></div>`;
  const bind=()=>{if(C)return;$('#tg').onclick=()=>{tab='game';game()};$('#tr').onclick=()=>{tab='rh';cards()}};
- function cards(){stopAudio();main().innerHTML=tabs()+`<div class="vrow">${VOW.map((c,i)=>`<button class="card" data-c="${c}" style="--c:${COLORS[i*2%8]}"><span class="e" style="font-family:${FONT}">${c}${c.toLowerCase()}</span><span style="font-size:clamp(40px,10vmin,90px);line-height:1">${LETTERS.find(l=>l[0]===c)[2]}</span></button>`).join('')}</div>`;
+ function cards(){stopAudio();main().innerHTML=tabs()+`<div class="vrow">${VOW.map((c,i)=>`<button class="card" data-c="${c}" style="--c:${COLORS[i*2%8]}"><span class="e" style="font-family:${FONT}">${LB(c)}</span><span style="font-size:clamp(40px,10vmin,90px);line-height:1">${LETTERS.find(l=>l[0]===c)[2]}</span></button>`).join('')}</div>`;
   bind();main().querySelectorAll('.card').forEach(b=>b.onclick=()=>rhymeView(b.dataset.c))}
  function game(){
   const v=seq[vi%seq.length];let found=0,fin=false;
@@ -429,7 +431,7 @@ SCREENS.vocali=(arg,t)=>{
   const cols=innerWidth>innerHeight?7:4,rows=innerWidth>innerHeight?3:6,total=cols*rows,oth=shuffle(VOW.filter(x=>x!==v));
   const list=[v,v,v,oth[0],oth[1],oth[2],...Array(total-6).fill(0).map(()=>pick(CONSON))],cells=shuffle([...Array(total).keys()]);
   $('#sc').innerHTML=list.map((ch,i)=>{const c=cells[i],cx=(c%cols+.5)/cols*100+(Math.random()-.5)*5,cy=(Math.floor(c/cols)+.5)/rows*100+(Math.random()-.5)*6;
-   return `<button class="sc" data-c="${ch}" style="left:${cx}%;top:${cy}%;color:${COLORS[Math.random()*8|0]};--r:${Math.random()*44-22|0}deg;font-size:calc(var(--s)*${(.85+Math.random()*.3).toFixed(2)})">${Math.random()<.5?ch:ch.toLowerCase()}</button>`}).join('');
+   return `<button class="sc" data-c="${ch}" style="left:${cx}%;top:${cy}%;color:${COLORS[Math.random()*8|0]};--r:${Math.random()*44-22|0}deg;font-size:calc(var(--s)*${(.85+Math.random()*.3).toFixed(2)})">${S.cm==='U'?ch:S.cm==='l'?ch.toLowerCase():(Math.random()<.5?ch:ch.toLowerCase())}</button>`}).join('');
   $('#sc').querySelectorAll('.sc').forEach(b=>b.onclick=()=>{const ch=b.dataset.c;if(fin||b.classList.contains('ok'))return;
    if(ch===v){b.classList.add('ok');found++;$('#sl').textContent='⭐'.repeat(found)+'☆'.repeat(3-found);sfx.pop();
     if(found<3)say('Ancora!');else{fin=true;sfx.ok();confetti();addStar();setTimeout(()=>rhymeView(v,()=>{if(t===tok)afterOk(()=>{vi++;game()},0)}),700)}}
@@ -443,7 +445,7 @@ SCREENS.vocali=(arg,t)=>{
 SCREENS.learn=(arg,t)=>{
  const C=MIS&&MIS.cfg;if(!C)return go('abc');let i=0;
  const show=()=>{const c=C.focus[i],[,w,e]=LETTERS.find(l=>l[0]===c),last=i===C.focus.length-1;
-  main().innerHTML=`<div class="detail"><div class="mid"><div class="big" style="color:${COLORS[ALL.indexOf(c)%8]};font-family:${FONT}">${c}${c.toLowerCase()}</div><div class="pic">${e}</div><div class="word"><b>${c}</b>${w.slice(1)}</div></div></div><div class="row"><button class="pill" id="sp">🔊 Ascolta</button><button class="pill on" id="nx">${last?'Fatto ✔':'Avanti ▶'}</button></div>`;
+  main().innerHTML=`<div class="detail"><div class="mid"><div class="big" style="color:${COLORS[ALL.indexOf(c)%8]};font-family:${FONT}">${LB(c)}</div><div class="pic">${e}</div><div class="word"><b>${c}</b>${w.slice(1)}</div></div></div><div class="row"><button class="pill" id="sp">🔊 Ascolta</button><button class="pill on" id="nx">${last?'Fatto ✔':'Avanti ▶'}</button></div>`;
   const sp=()=>{sfx.pop();say(`${LNAME[c]}. ${LNAME[c]} come ${w}.`)};$('#sp').onclick=sp;main().querySelector('.pic').onclick=sp;main().querySelector('.big').onclick=sp;sp();
   $('#nx').onclick=()=>{sfx.pop();if(last){confetti();addStar();praise();setTimeout(()=>t===tok&&misStopDone(),1800)}else{i++;show()}}};
  show();

@@ -1,6 +1,6 @@
 """Genera le voci neurali (edge-tts) per tutte le frasi dell'app -> audio/*.mp3 + audio/index.json
 Uso: python genera_audio.py"""
-import asyncio, json, hashlib, os, sys
+import asyncio, json, hashlib, os, sys, re
 import edge_tts
 from playwright.sync_api import sync_playwright
 
@@ -35,7 +35,7 @@ async def main(fr):
         if os.path.exists(path): continue
         for k in range(3):
             try:
-                await edge_tts.Communicate(t, VOICE, rate=("-16%" if len(t) > 40 else RATE), pitch=PITCH).save(path); break
+                await edge_tts.Communicate(re.sub(r'(?<![A-Za-z])([A-Z])(?![A-Za-z])', lambda m: m.group(1).lower(), t), VOICE, rate=("-16%" if len(t) > 40 else RATE), pitch=PITCH).save(path); break
             except Exception as e:
                 print("retry", t, e); await asyncio.sleep(2)
     json.dump(idx, open(HERE + "/audio/index.json", "w", encoding="utf-8"), ensure_ascii=False, indent=0)

@@ -1,4 +1,4 @@
-const V='pio-v5',FILES=['./','./index.html','./disegni.js','./manifest.webmanifest','./icon-192.png','./icon-512.png','./audio/index.json'];
+const V='pio-v6',FILES=['./','./index.html','./disegni.js','./manifest.webmanifest','./icon-192.png','./icon-512.png','./audio/index.json'];
 self.addEventListener('install',e=>{e.waitUntil((async()=>{
   const c=await caches.open(V);await c.addAll(FILES);
   try{const idx=await (await fetch('./audio/index.json')).json();await c.addAll([...new Set(Object.values(idx))].map(f=>'./audio/'+f))}catch(err){}
